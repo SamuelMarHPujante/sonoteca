@@ -226,15 +226,16 @@ public class RepositorioFicheros implements RepositorioSonoTeca {
     @Override
     public void altaCancion(Cancion cancion) {
         List<Cancion> listaCanciones = listarCanciones();
-        int idNuevo = siguienteId(listaCanciones, Cancion::getId);
+        boolean existeCancion = obtenerCoincidencia(listaCanciones, cancion.getTitulo(), Cancion::getTitulo) != null;
 
-        // comprobación de album, artista y género se hacen aquí
-        comprobarElementosCancion(cancion);
-
-        cancion.setId(idNuevo);
-        listaCanciones.add(cancion);
-        biblioteca.setCanciones(listaCanciones);
-        guardarBiblioteca(biblioteca, rutaFicheroBiblioteca);
+        if (!existeCancion) {
+            int idNuevo = siguienteId(listaCanciones, Cancion::getId);
+            comprobarElementosCancion(cancion);
+            cancion.setId(idNuevo);
+            listaCanciones.add(cancion);
+            biblioteca.setCanciones(listaCanciones);
+            guardarBiblioteca(biblioteca, rutaFicheroBiblioteca);
+        }
     }
 
     private void comprobarElementosCancion(Cancion cancion) {
@@ -339,6 +340,7 @@ public class RepositorioFicheros implements RepositorioSonoTeca {
         return maxId + 1;
     }
 
+    @Nullable
     private <T> T obtenerPorId(List<T> lista, int idMeta, Function<T, Integer> idExtractor) {
         return lista.stream()
                 .filter(obj -> Integer.valueOf(idMeta).equals(idExtractor.apply(obj)))
