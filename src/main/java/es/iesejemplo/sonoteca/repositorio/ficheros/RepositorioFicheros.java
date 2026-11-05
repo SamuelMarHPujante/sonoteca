@@ -225,11 +225,12 @@ public class RepositorioFicheros implements RepositorioSonoTeca {
     // DONE: implementar (unidad 2, ejercicio 0).
     @Override
     public void altaCancion(Cancion cancion) {
-        boolean noExisteCancion = buscarCanciones(cancion.getTitulo()).isEmpty();
-        if (noExisteCancion) {
-            List<Cancion> listaCanciones = listarCanciones();
-            int idNuevo = siguienteId(listaCanciones, Cancion::getId);
+        List<Cancion> listaCanciones = listarCanciones();
+        String titulo = cancion.getTitulo();
+        boolean noExisteCancion = obtenerCoincidencia(listaCanciones, titulo, Cancion::getTitulo) == null;
 
+        if (noExisteCancion) {
+            int idNuevo = siguienteId(listaCanciones, Cancion::getId);
             comprobarElementosCancion(cancion);
             cancion.setId(idNuevo);
             listaCanciones.add(cancion);
