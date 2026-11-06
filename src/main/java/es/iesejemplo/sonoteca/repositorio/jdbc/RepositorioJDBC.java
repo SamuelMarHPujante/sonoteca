@@ -3,6 +3,8 @@ package es.iesejemplo.sonoteca.repositorio.jdbc;
 import es.iesejemplo.sonoteca.modelo.*;
 import es.iesejemplo.sonoteca.repositorio.RepositorioSonoTeca;
 
+import java.sql.Connection;
+import java.sql.SQLException;
 import java.util.List;
 
 /**
@@ -15,6 +17,32 @@ import java.util.List;
  * cadenas para construir el SQL con datos introducidos por el usuario.
  */
 public class RepositorioJDBC implements RepositorioSonoTeca {
+
+    // region COMPROBACIONES DE ELEMENTOS EN BBDD
+
+    /**
+     * Devuelve el id del género con ese nombre. Si no existe, lo inserta y
+     * devuelve el id recién generado. Recibe la conexión: no abre la suya.
+     */
+    private int obtenerOCrearGenero(Connection conexion, String nombre) throws SQLException {
+        // 1. Busca primero: SELECT id FROM generos WHERE ... comparando el nombre
+        // sin distinguir mayúsculas de minúsculas.
+        // 2. Si el ResultSet trae fila, devuelve ese id y no insertes nada.
+        // 3. Si no la trae, inserta y recupera el id que acaba de generar el gestor.
+        // 4. Connection, PreparedStatement y ResultSet, siempre en try-with-resources.
+        return 0;
+    }
+
+    private int obtenerOCrearArtista(Connection conexion, String nombre, String nacionalidad) throws SQLException {
+        return 0;
+    }
+
+    private int obtenerOCrearAlbum(Connection conexion, String titulo, int anyo, int idArtista, int idGenero) throws SQLException {
+        return 0;
+    }
+
+    // endregion
+
 
     // ---------- Ejercicio 2: alta en cascada ----------
 
