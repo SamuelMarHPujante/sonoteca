@@ -1,0 +1,2 @@
+CREATE ROLE sonoteca WITH LOGIN PASSWORD 'sonoteca';
+CREATE DATABASE sonoteca WITH OWNER sonoteca ENCODING 'UTF8';
