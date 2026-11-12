@@ -92,9 +92,33 @@ public class RepositorioJDBC implements RepositorioSonoTeca {
 
     @Override
     public void altaCancion(Cancion cancion) {
-        // TODO: 1) comprobar/crear el género; 2) comprobar/crear el artista;
-        //       3) comprobar/crear el álbum; 4) insertar la canción.
-        throw new UnsupportedOperationException("TODO: implementar (unidad 3, ejercicio 2)");
+        try (Connection conexion = ConexionBD.obtenerConexion()) {
+            conexion.setAutoCommit(false);
+            try {
+                Album albumCancion = cancion.getAlbum();
+                Genero generoCancion = albumCancion.getGenero();
+                Artista artistaCancion = albumCancion.getArtista();
+
+                int idGenero = obtenerOCrearGenero(conexion, generoCancion.getNombre());
+                int idArtista = obtenerOCrearArtista(conexion, artistaCancion.getNombre(), artistaCancion.getNacionalidad());
+                int idAlbum = obtenerOCrearAlbum(conexion, albumCancion.getTitulo(), albumCancion.getAnio(), idArtista, idGenero);
+
+                String insercion = "INSERT INTO canciones (titulo, numero_pista, duracion_segundos, album_id) VALUES (?, ?, ?, ?)";
+                try (PreparedStatement ps = conexion.prepareStatement(insercion)) {
+                    ps.setString(1, cancion.getTitulo());
+                    ps.setInt (2, cancion.getNumeroPista());
+                    ps.setInt (3, cancion.getDuracionSegundos());
+                    ps.setInt (4, idAlbum);
+                    ps.executeUpdate();
+                }
+                conexion.commit();
+            } catch (SQLException error) {
+                conexion.rollback();
+                System.out.println("Error en el alta de canción: " + error.getMessage());
+            }
+        } catch (SQLException error) {
+            throw new RuntimeException("Error al dar de alta la canción: " + error);
+        }
     }
 
     // ---------- Ejercicio 3: listar con datos relacionados ----------
