@@ -106,9 +106,9 @@ public class RepositorioJDBC implements RepositorioSonoTeca {
                 String insercion = "INSERT INTO canciones (titulo, numero_pista, duracion_segundos, album_id) VALUES (?, ?, ?, ?)";
                 try (PreparedStatement ps = conexion.prepareStatement(insercion)) {
                     ps.setString(1, cancion.getTitulo());
-                    ps.setInt (2, cancion.getNumeroPista());
-                    ps.setInt (3, cancion.getDuracionSegundos());
-                    ps.setInt (4, idAlbum);
+                    ps.setInt(2, cancion.getNumeroPista());
+                    ps.setInt(3, cancion.getDuracionSegundos());
+                    ps.setInt(4, idAlbum);
                     ps.executeUpdate();
                 }
                 conexion.commit();
