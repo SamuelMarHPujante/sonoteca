@@ -23,40 +23,64 @@ public class RepositorioJDBC implements RepositorioSonoTeca {
 
     // region COMPROBACIONES DE ELEMENTOS EN BBDD
 
-    // Recibe la conexión: no abre la suya.
     private int obtenerOCrearGenero(Connection conexion, String nombre) throws SQLException {
-        String tabla = "genero";
-        String parametro = "";
-        int idObtenido = getDatabaseId(conexion, tabla, parametro);
-        // Devuelve el id del género con ese nombre.
-        // 1. Busca comparando el nombre sin distinguir mayúsculas de minúsculas.
-
-        // Si no existe, lo inserta y devuelve el id recién generado.
-        if (idObtenido == -1) {
-            // Insertar y return
-            // 2. Si el ResultSet trae fila, devuelve ese id y no insertes nada.
-            // 3. Si no la trae, inserta y recupera el id que acaba de generar el gestor.
-            return 0;
+        String consulta = "SELECT id FROM generos WHERE LOWER(nombre) = LOWER(?)";
+        try (PreparedStatement ps = conexion.prepareStatement(consulta)) {
+            ps.setString(1, nombre);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return rs.getInt("id");
+            }
         }
 
-        return idObtenido;
+        String insercion = "INSERT INTO generos (nombre) VALUES (?) RETURNING id";
+        try (PreparedStatement ps = conexion.prepareStatement(insercion)) {
+            ps.setString(1, nombre);
+            try (ResultSet rs = ps.executeQuery()) {
+                rs.next();
+                return rs.getInt("id");
+            }
+        }
     }
 
     private int obtenerOCrearArtista(Connection conexion, String nombre, String nacionalidad) throws SQLException {
-        // 1. Busca comparando el nombre sin distinguir mayúsculas de minúsculas.
-        return 0;
+        String consulta = "SELECT id FROM artistas WHERE LOWER(nombre) = LOWER(?)";
+        try (PreparedStatement ps = conexion.prepareStatement(consulta)) {
+            ps.setString(1, nombre);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return rs.getInt("id");
+            }
+        }
+
+        String insercion = "INSERT INTO artistas (nombre, nacionalidad) VALUES (?, ?) RETURNING id";
+        try (PreparedStatement ps = conexion.prepareStatement(insercion)) {
+            ps.setString(1, nombre);
+            ps.setString(2, nacionalidad);
+            try (ResultSet rs = ps.executeQuery()) {
+                rs.next();
+                return rs.getInt("id");
+            }
+        }
     }
 
     private int obtenerOCrearAlbum(Connection conexion, String titulo, int anyo, int idArtista, int idGenero) throws SQLException {
-        // 1. Busca comparando título y artista.
-        return 0;
-    }
+        String consulta = "SELECT id FROM albumes WHERE LOWER(titulo) = LOWER(?) AND artista_id = ?";
+        try (PreparedStatement ps = conexion.prepareStatement(consulta)) {
+            ps.setString(1, titulo);
+            ps.setInt(2, idArtista);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return rs.getInt("id");
+            }
+        }
 
-    private int getDatabaseId(Connection conexion, String tabla, String parametro) throws SQLException {
-        String peticion = "SELECT id FROM " + tabla + " WHERE " + parametro;
-        try(PreparedStatement statement = conexion.prepareStatement(peticion)) {
-            try(ResultSet result = statement.executeQuery()) {
-                return result.next() ? result.getInt("id") : -1;
+        String insercion = "INSERT INTO albumes (titulo, anio, artista_id, genero_id) VALUES (?, ?, ?, ?) RETURNING id";
+        try (PreparedStatement ps = conexion.prepareStatement(insercion)) {
+            ps.setString(1, titulo);
+            ps.setInt(2, anyo);
+            ps.setInt(3, idArtista);
+            ps.setInt(4, idGenero);
+            try (ResultSet rs = ps.executeQuery()) {
+                rs.next();
+                return rs.getInt("id");
             }
         }
     }
