@@ -1,6 +1,5 @@
 package es.iesejemplo.sonoteca.repositorio.ficheros;
 
-import com.mongodb.lang.Nullable;
 import es.iesejemplo.sonoteca.modelo.*;
 import es.iesejemplo.sonoteca.repositorio.RepositorioSonoTeca;
 
@@ -341,7 +340,6 @@ public class RepositorioFicheros implements RepositorioSonoTeca {
         return maxId + 1;
     }
 
-    @Nullable
     private <T> T obtenerPorId(List<T> lista, int idMeta, Function<T, Integer> idExtractor) {
         return lista.stream()
                 .filter(obj -> Integer.valueOf(idMeta).equals(idExtractor.apply(obj)))
@@ -393,7 +391,6 @@ public class RepositorioFicheros implements RepositorioSonoTeca {
         return genero;
     }
 
-    @Nullable
     private <T> T obtenerCoincidencia(List<T> lista, String nombreOTitulo, Function<T, String> extractor) {
         return lista.stream()
                 .filter(obj -> extractor.apply(obj).equalsIgnoreCase(nombreOTitulo))
