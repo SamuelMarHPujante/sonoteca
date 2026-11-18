@@ -18,12 +18,12 @@
         <property name="hibernate.format_sql">true</property>
 
         <!-- Añade aquí el mapping de cada entidad a medida que la vayas anotando -->
-        <mapping class="es.iesejemplo.sonoteca.modelo.Genero"/>
-        <mapping class="es.iesejemplo.sonoteca.modelo.Artista"/>
-        <mapping class="es.iesejemplo.sonoteca.modelo.Album"/>
-        <mapping class="es.iesejemplo.sonoteca.modelo.Cancion"/>
-        <mapping class="es.iesejemplo.sonoteca.modelo.ListaReproduccion"/>
-        <mapping class="es.iesejemplo.sonoteca.repositorio.hibernate.ListaCancion"/>
+        <mapping class="edu.marhuendasamuel.sonoteca.modelo.Genero"/>
+        <mapping class="edu.marhuendasamuel.sonoteca.modelo.Artista"/>
+        <mapping class="edu.marhuendasamuel.sonoteca.modelo.Album"/>
+        <mapping class="edu.marhuendasamuel.sonoteca.modelo.Cancion"/>
+        <mapping class="edu.marhuendasamuel.sonoteca.modelo.ListaReproduccion"/>
+        <mapping class="edu.marhuendasamuel.sonoteca.repositorio.hibernate.ListaCancion"/>
 
     </session-factory>
 </hibernate-configuration>

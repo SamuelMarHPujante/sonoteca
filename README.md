@@ -19,10 +19,10 @@ La **unidad 5** (Spring) es un proyecto aparte: `sonoteca-api` (junto a este).
 ## Cómo ejecutar la aplicación
 
 ```bash
-mvn compile exec:java -Dexec.mainClass=es.iesejemplo.sonoteca.Main
+mvn compile exec:java -Dexec.mainClass=edu.marhuendasamuel.sonoteca.Main
 ```
 
-o, desde el IDE, ejecuta directamente la clase `es.iesejemplo.sonoteca.Main`.
+o, desde el IDE, ejecuta directamente la clase `edu.marhuendasamuel.sonoteca.Main`.
 
 Por defecto se usa `RepositorioMemoria`, así que la aplicación funciona sin ninguna configuración adicional. A medida que completes cada unidad, cambia la línea señalada en `Main.java` por tu propia implementación.
 

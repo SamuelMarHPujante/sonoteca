@@ -85,7 +85,7 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>es.iesejemplo.sonoteca.Main</mainClass>
+                            <mainClass>edu.marhuendasamuel.sonoteca.Main</mainClass>
                         </manifest>
                     </archive>
                 </configuration>
