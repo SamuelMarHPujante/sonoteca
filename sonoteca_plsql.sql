@@ -55,9 +55,11 @@ CREATE TABLE lista_cancion (
     PRIMARY KEY (lista_id, cancion_id),
     CONSTRAINT fk_lc_lista FOREIGN KEY (lista_id) REFERENCES listas_reproduccion(id),
     CONSTRAINT fk_lc_cancion FOREIGN KEY (cancion_id) REFERENCES canciones(id)
-    CREATE INDEX idx_albumes_artista ON albumes(artista_id);CREATE INDEX idx_canciones_album
-    ON canciones(album_id);CREATE INDEX idx_canciones_titulo ON canciones(titulo);
 );
+
+CREATE INDEX idx_albumes_artista ON albumes(artista_id);
+CREATE INDEX idx_canciones_album ON canciones(album_id);
+CREATE INDEX idx_canciones_titulo ON canciones(titulo);
 
 
 -- ---------------------------------------------------------------------------

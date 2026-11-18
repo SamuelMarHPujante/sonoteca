@@ -126,7 +126,28 @@ public class RepositorioJDBC implements RepositorioSonoTeca {
     public List<Cancion> listarCanciones() {
         // TODO: consulta que combine canciones + álbumes + artistas + géneros
         // (con JOIN en el SQL, o con varias consultas encadenadas).
+
+        // 1. La consulta de arriba, ya completa.
+        // 2. Connection, PreparedStatement y ResultSet en un solo try-with-resources.
+        // 3. Recorre el ResultSet y añade a la lista lo que devuelva mapearCancion(rs).
+        // 4. Captura la SQLException y relánzala envuelta con un mensaje claro.
+        // 5. Devuelve la lista (vacía si no hay filas, nunca null).
+
+        try (Connection conexion = ConexionBD.obtenerConexion()) {
+
+        } catch (SQLException error) {
+
+        }
+
         throw new UnsupportedOperationException("TODO: implementar (unidad 3, ejercicio 3)");
+    }
+
+    /* Convierte la fila actual del ResultSet en un objeto del modelo, con su álbum completo. */
+    private Cancion mapearCancion(ResultSet rs) throws SQLException {
+        // Construye de dentro hacia fuera: primero Artista y Genero, con ellos el Album
+        // (setArtista / setGenero) y, por último, la Cancion (setAlbum).
+        // Las cuatro clases del modelo tienen constructor vacío y setters.
+        return null;
     }
 
     /**

@@ -14,7 +14,6 @@ import java.util.Properties;
  * y abre una conexión JDBC a la base de datos.
  */
 public class ConexionBD {
-
     public static Connection obtenerConexion() throws SQLException {
         Properties propiedades = new Properties();
         try (InputStream in = ConexionBD.class.getClassLoader().getResourceAsStream("config.properties")) {
