@@ -7,6 +7,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -124,30 +125,73 @@ public class RepositorioJDBC implements RepositorioSonoTeca {
 
     @Override
     public List<Cancion> listarCanciones() {
-        // TODO: consulta que combine canciones + álbumes + artistas + géneros
-        // (con JOIN en el SQL, o con varias consultas encadenadas).
+        String sql = """
+            SELECT
+                c.id AS cancion_id,
+                c.titulo AS cancion_titulo,
+                c.duracion_segundos,
+                c.numero_pista,
+                al.id AS album_id,
+                al.titulo AS album_titulo,
+                al.anio AS album_anio,
+                ar.id AS artista_id,
+                ar.nombre AS artista_nombre,
+                ar.nacionalidad AS artista_nacionalidad,
+                g.id AS genero_id,
+                g.nombre AS genero_nombre
+            FROM canciones c
+            JOIN albumes al ON c.album_id = al.id
+            JOIN artistas ar ON al.artista_id = ar.id
+            JOIN generos g ON al.genero_id = g.id
+            ORDER BY c.titulo
+            """;
+        List<Cancion> canciones = new ArrayList<>();
 
-        // 1. La consulta de arriba, ya completa.
-        // 2. Connection, PreparedStatement y ResultSet en un solo try-with-resources.
-        // 3. Recorre el ResultSet y añade a la lista lo que devuelva mapearCancion(rs).
-        // 4. Captura la SQLException y relánzala envuelta con un mensaje claro.
-        // 5. Devuelve la lista (vacía si no hay filas, nunca null).
-
-        try (Connection conexion = ConexionBD.obtenerConexion()) {
-
+        try (Connection conexion = ConexionBD.obtenerConexion();
+                PreparedStatement ps = conexion.prepareStatement(sql);
+                ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                canciones.add(mapearCancion(rs));
+            }
         } catch (SQLException error) {
-
+            throw new RuntimeException("Error al listar las canciones", error);
         }
 
-        throw new UnsupportedOperationException("TODO: implementar (unidad 3, ejercicio 3)");
+        return canciones;
     }
 
     /* Convierte la fila actual del ResultSet en un objeto del modelo, con su álbum completo. */
     private Cancion mapearCancion(ResultSet rs) throws SQLException {
-        // Construye de dentro hacia fuera: primero Artista y Genero, con ellos el Album
-        // (setArtista / setGenero) y, por último, la Cancion (setAlbum).
-        // Las cuatro clases del modelo tienen constructor vacío y setters.
-        return null;
+        Genero genero = new Genero();
+        genero.setId(rs.getInt("genero_id"));
+        genero.setNombre(rs.getString("genero_nombre"));
+
+        Artista artista = new Artista();
+        artista.setId(rs.getInt("artista_id"));
+        artista.setNombre(rs.getString("artista_nombre"));
+        artista.setNacionalidad(rs.getString("artista_nacionalidad"));
+
+        Album album = new Album();
+        album.setId(rs.getInt("album_id"));
+        album.setTitulo(rs.getString("album_titulo"));
+        int anio = rs.getInt("album_anio");
+        if (!rs.wasNull()) {
+            album.setAnio(anio);
+        }
+        album.setArtista(artista);
+        album.setGenero(genero);
+
+        Cancion cancion = new Cancion();
+        cancion.setId(rs.getInt("cancion_id"));
+        cancion.setTitulo(rs.getString("cancion_titulo"));
+        cancion.setDuracionSegundos(rs.getInt("duracion_segundos"));
+        int numeroPista = rs.getInt("numero_pista");
+        if (!rs.wasNull()) {
+            cancion.setNumeroPista(numeroPista);
+        }
+        cancion.setAlbum(album);
+
+        return cancion;
     }
 
     /**
@@ -155,10 +199,50 @@ public class RepositorioJDBC implements RepositorioSonoTeca {
      * información aplanada en {@link CancionCompleta} (título de la canción,
      * álbum, artista, género y año), tal como pide el ejercicio 3.
      */
+    // DONE: implementar con una consulta JOIN (o varias consultas encadenadas),
     public List<CancionCompleta> listarCancionesCompletas() {
-        // TODO: implementar con una consulta JOIN (o varias consultas encadenadas),
-        // construyendo un CancionCompleta por cada fila del resultado.
-        throw new UnsupportedOperationException("TODO: implementar (unidad 3, ejercicio 3)");
+        String sql = """
+            SELECT
+                c.titulo AS titulo_cancion,
+                al.titulo AS titulo_album,
+                ar.nombre AS nombre_artista,
+                g.nombre AS nombre_genero,
+                al.anio AS anio
+            FROM canciones c
+            JOIN albumes al ON c.album_id = al.id
+            JOIN artistas ar ON al.artista_id = ar.id
+            JOIN generos g ON al.genero_id = g.id
+            ORDER BY ar.nombre, al.anio, c.numero_pista
+            """;
+
+        List<CancionCompleta> cancionesCompletas = new ArrayList<>();
+
+        try (Connection conexion = ConexionBD.obtenerConexion();
+             PreparedStatement ps = conexion.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                String tituloCancion = rs.getString("titulo_cancion");
+                String tituloAlbum = rs.getString("titulo_album");
+                String nombreArtista = rs.getString("nombre_artista");
+                String nombreGenero = rs.getString("nombre_genero");
+                int anio = rs.getInt("anio");
+                if (rs.wasNull()) {
+                    anio = 0;
+                }
+
+                cancionesCompletas.add(new CancionCompleta(
+                        tituloCancion,
+                        tituloAlbum,
+                        nombreArtista,
+                        nombreGenero,
+                        anio
+                ));
+            }
+        } catch (SQLException error) {
+            throw new RuntimeException("Error al listar las canciones completas", error);
+        }
+
+        return cancionesCompletas;
     }
 
     // ---------- Ejercicio 4: búsqueda parametrizada ----------
