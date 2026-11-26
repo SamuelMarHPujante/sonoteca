@@ -21,73 +21,6 @@ import java.util.List;
  */
 public class RepositorioJDBC implements RepositorioSonoTeca {
 
-    // region COMPROBACIONES DE ELEMENTOS EN BBDD
-
-    private int obtenerOCrearGenero(Connection conexion, String nombre) throws SQLException {
-        String consulta = "SELECT id FROM generos WHERE LOWER(nombre) = LOWER(?)";
-        try (PreparedStatement ps = conexion.prepareStatement(consulta)) {
-            ps.setString(1, nombre);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) return rs.getInt("id");
-            }
-        }
-
-        String insercion = "INSERT INTO generos (nombre) VALUES (?) RETURNING id";
-        try (PreparedStatement ps = conexion.prepareStatement(insercion)) {
-            ps.setString(1, nombre);
-            try (ResultSet rs = ps.executeQuery()) {
-                rs.next();
-                return rs.getInt("id");
-            }
-        }
-    }
-
-    private int obtenerOCrearArtista(Connection conexion, String nombre, String nacionalidad) throws SQLException {
-        String consulta = "SELECT id FROM artistas WHERE LOWER(nombre) = LOWER(?)";
-        try (PreparedStatement ps = conexion.prepareStatement(consulta)) {
-            ps.setString(1, nombre);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) return rs.getInt("id");
-            }
-        }
-
-        String insercion = "INSERT INTO artistas (nombre, nacionalidad) VALUES (?, ?) RETURNING id";
-        try (PreparedStatement ps = conexion.prepareStatement(insercion)) {
-            ps.setString(1, nombre);
-            ps.setString(2, nacionalidad);
-            try (ResultSet rs = ps.executeQuery()) {
-                rs.next();
-                return rs.getInt("id");
-            }
-        }
-    }
-
-    private int obtenerOCrearAlbum(Connection conexion, String titulo, int anyo, int idArtista, int idGenero) throws SQLException {
-        String consulta = "SELECT id FROM albumes WHERE LOWER(titulo) = LOWER(?) AND artista_id = ?";
-        try (PreparedStatement ps = conexion.prepareStatement(consulta)) {
-            ps.setString(1, titulo);
-            ps.setInt(2, idArtista);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) return rs.getInt("id");
-            }
-        }
-
-        String insercion = "INSERT INTO albumes (titulo, anio, artista_id, genero_id) VALUES (?, ?, ?, ?) RETURNING id";
-        try (PreparedStatement ps = conexion.prepareStatement(insercion)) {
-            ps.setString(1, titulo);
-            ps.setInt(2, anyo);
-            ps.setInt(3, idArtista);
-            ps.setInt(4, idGenero);
-            try (ResultSet rs = ps.executeQuery()) {
-                rs.next();
-                return rs.getInt("id");
-            }
-        }
-    }
-
-    // endregion
-
-
     // ---------- Ejercicio 2: alta en cascada ----------
 
     @Override
@@ -150,48 +83,11 @@ public class RepositorioJDBC implements RepositorioSonoTeca {
         try (Connection conexion = ConexionBD.obtenerConexion();
                 PreparedStatement ps = conexion.prepareStatement(sql);
                 ResultSet rs = ps.executeQuery()) {
-            while (rs.next()) {
-                canciones.add(mapearCancion(rs));
-            }
+            while (rs.next()) canciones.add(mapearCancion(rs));
         } catch (SQLException error) {
             throw new RuntimeException("Error al listar las canciones", error);
         }
-
         return canciones;
-    }
-
-    /* Convierte la fila actual del ResultSet en un objeto del modelo, con su álbum completo. */
-    private Cancion mapearCancion(ResultSet rs) throws SQLException {
-        Genero genero = new Genero();
-        genero.setId(rs.getInt("genero_id"));
-        genero.setNombre(rs.getString("genero_nombre"));
-
-        Artista artista = new Artista();
-        artista.setId(rs.getInt("artista_id"));
-        artista.setNombre(rs.getString("artista_nombre"));
-        artista.setNacionalidad(rs.getString("artista_nacionalidad"));
-
-        Album album = new Album();
-        album.setId(rs.getInt("album_id"));
-        album.setTitulo(rs.getString("album_titulo"));
-        int anio = rs.getInt("album_anio");
-        if (!rs.wasNull()) {
-            album.setAnio(anio);
-        }
-        album.setArtista(artista);
-        album.setGenero(genero);
-
-        Cancion cancion = new Cancion();
-        cancion.setId(rs.getInt("cancion_id"));
-        cancion.setTitulo(rs.getString("cancion_titulo"));
-        cancion.setDuracionSegundos(rs.getInt("duracion_segundos"));
-        int numeroPista = rs.getInt("numero_pista");
-        if (!rs.wasNull()) {
-            cancion.setNumeroPista(numeroPista);
-        }
-        cancion.setAlbum(album);
-
-        return cancion;
     }
 
     /**
@@ -199,7 +95,6 @@ public class RepositorioJDBC implements RepositorioSonoTeca {
      * información aplanada en {@link CancionCompleta} (título de la canción,
      * álbum, artista, género y año), tal como pide el ejercicio 3.
      */
-    // DONE: implementar con una consulta JOIN (o varias consultas encadenadas),
     public List<CancionCompleta> listarCancionesCompletas() {
         String sql = """
             SELECT
@@ -214,7 +109,6 @@ public class RepositorioJDBC implements RepositorioSonoTeca {
             JOIN generos g ON al.genero_id = g.id
             ORDER BY ar.nombre, al.anio, c.numero_pista
             """;
-
         List<CancionCompleta> cancionesCompletas = new ArrayList<>();
 
         try (Connection conexion = ConexionBD.obtenerConexion();
@@ -226,9 +120,7 @@ public class RepositorioJDBC implements RepositorioSonoTeca {
                 String nombreArtista = rs.getString("nombre_artista");
                 String nombreGenero = rs.getString("nombre_genero");
                 int anio = rs.getInt("anio");
-                if (rs.wasNull()) {
-                    anio = 0;
-                }
+                if (rs.wasNull()) anio = 0;
 
                 cancionesCompletas.add(new CancionCompleta(
                         tituloCancion,
@@ -241,7 +133,6 @@ public class RepositorioJDBC implements RepositorioSonoTeca {
         } catch (SQLException error) {
             throw new RuntimeException("Error al listar las canciones completas", error);
         }
-
         return cancionesCompletas;
     }
 
@@ -249,8 +140,45 @@ public class RepositorioJDBC implements RepositorioSonoTeca {
 
     @Override
     public List<Cancion> buscarCanciones(String texto) {
-        // TODO: PreparedStatement con LIKE sobre título/artista/álbum.
-        throw new UnsupportedOperationException("TODO: implementar (unidad 3, ejercicio 4)");
+        if (texto == null || texto.isBlank()) return List.of();
+
+        String sql = """
+            SELECT
+                c.id AS cancion_id,
+                c.titulo AS cancion_titulo,
+                c.duracion_segundos,
+                c.numero_pista,
+                al.id AS album_id,
+                al.titulo AS album_titulo,
+                al.anio AS album_anio,
+                ar.id AS artista_id,
+                ar.nombre AS artista_nombre,
+                ar.nacionalidad AS artista_nacionalidad,
+                g.id AS genero_id,
+                g.nombre AS genero_nombre
+            FROM canciones c
+            JOIN albumes al ON c.album_id = al.id
+            JOIN artistas ar ON al.artista_id = ar.id
+            JOIN generos g ON al.genero_id = g.id
+            WHERE c.titulo ILIKE '%' || ? || '%'
+               OR ar.nombre ILIKE '%' || ? || '%'
+               OR al.titulo ILIKE '%' || ? || '%'
+            ORDER BY c.titulo
+            """;
+        List<Cancion> canciones = new ArrayList<>();
+
+        try (Connection conexion = ConexionBD.obtenerConexion();
+             PreparedStatement ps = conexion.prepareStatement(sql)) {
+            ps.setString(1, texto);
+            ps.setString(2, texto);
+            ps.setString(3, texto);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) canciones.add(mapearCancion(rs));
+            }
+        } catch (SQLException error) {
+            throw new RuntimeException("Error al buscar canciones", error);
+        }
+        return canciones;
     }
 
     // ---------- Ejercicio 5: actualizar / eliminar ----------
@@ -320,5 +248,99 @@ public class RepositorioJDBC implements RepositorioSonoTeca {
     @Override
     public List<Cancion> cancionesDeLista(int idLista) {
         throw new UnsupportedOperationException("TODO: implementar (unidad 3)");
+    }
+
+    // ---------- Métodos varios ----------
+
+    private Cancion mapearCancion(ResultSet rs) throws SQLException {
+        Genero genero = new Genero();
+        genero.setId(rs.getInt("genero_id"));
+        genero.setNombre(rs.getString("genero_nombre"));
+
+        Artista artista = new Artista();
+        artista.setId(rs.getInt("artista_id"));
+        artista.setNombre(rs.getString("artista_nombre"));
+        artista.setNacionalidad(rs.getString("artista_nacionalidad"));
+
+        Album album = new Album();
+        album.setId(rs.getInt("album_id"));
+        album.setTitulo(rs.getString("album_titulo"));
+        int anio = rs.getInt("album_anio");
+        if (!rs.wasNull()) album.setAnio(anio);
+
+        album.setArtista(artista);
+        album.setGenero(genero);
+
+        Cancion cancion = new Cancion();
+        cancion.setId(rs.getInt("cancion_id"));
+        cancion.setTitulo(rs.getString("cancion_titulo"));
+        cancion.setDuracionSegundos(rs.getInt("duracion_segundos"));
+        int numeroPista = rs.getInt("numero_pista");
+        if (!rs.wasNull()) cancion.setNumeroPista(numeroPista);
+
+        cancion.setAlbum(album);
+        return cancion;
+    }
+
+    private int obtenerOCrearGenero(Connection conexion, String nombre) throws SQLException {
+        String consulta = "SELECT id FROM generos WHERE LOWER(nombre) = LOWER(?)";
+        try (PreparedStatement ps = conexion.prepareStatement(consulta)) {
+            ps.setString(1, nombre);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return rs.getInt("id");
+            }
+        }
+
+        String insercion = "INSERT INTO generos (nombre) VALUES (?) RETURNING id";
+        try (PreparedStatement ps = conexion.prepareStatement(insercion)) {
+            ps.setString(1, nombre);
+            try (ResultSet rs = ps.executeQuery()) {
+                rs.next();
+                return rs.getInt("id");
+            }
+        }
+    }
+
+    private int obtenerOCrearArtista(Connection conexion, String nombre, String nacionalidad) throws SQLException {
+        String consulta = "SELECT id FROM artistas WHERE LOWER(nombre) = LOWER(?)";
+        try (PreparedStatement ps = conexion.prepareStatement(consulta)) {
+            ps.setString(1, nombre);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return rs.getInt("id");
+            }
+        }
+
+        String insercion = "INSERT INTO artistas (nombre, nacionalidad) VALUES (?, ?) RETURNING id";
+        try (PreparedStatement ps = conexion.prepareStatement(insercion)) {
+            ps.setString(1, nombre);
+            ps.setString(2, nacionalidad);
+            try (ResultSet rs = ps.executeQuery()) {
+                rs.next();
+                return rs.getInt("id");
+            }
+        }
+    }
+
+    private int obtenerOCrearAlbum(Connection conexion, String titulo, int anyo, int idArtista, int idGenero) throws SQLException {
+        String consulta = "SELECT id FROM albumes WHERE LOWER(titulo) = LOWER(?) AND artista_id = ?";
+        try (PreparedStatement ps = conexion.prepareStatement(consulta)) {
+            ps.setString(1, titulo);
+            ps.setInt(2, idArtista);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return rs.getInt("id");
+            }
+        }
+
+        String insercion = "INSERT INTO albumes (titulo, anio, artista_id, genero_id) VALUES (?, ?, ?, ?) RETURNING id";
+        try (PreparedStatement ps = conexion.prepareStatement(insercion)) {
+            ps.setString(1, titulo);
+            ps.setInt(2, anyo);
+            ps.setInt(3, idArtista);
+            ps.setInt(4, idGenero);
+            try (ResultSet rs = ps.executeQuery()) {
+                rs.next();
+                return rs.getInt("id");
+            }
+        }
     }
 }
