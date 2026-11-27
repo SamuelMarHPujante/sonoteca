@@ -2,7 +2,8 @@ package edu.marhuendasamuel.sonoteca.repositorio.jdbc;
 
 import edu.marhuendasamuel.sonoteca.modelo.*;
 import edu.marhuendasamuel.sonoteca.repositorio.RepositorioSonoTeca;
-
+import edu.marhuendasamuel.sonoteca.util.JsonUtils;
+import java.io.IOException;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -21,7 +22,7 @@ import java.util.List;
  */
 public class RepositorioJDBC implements RepositorioSonoTeca {
 
-    // ---------- Ejercicio 2: alta en cascada ----------
+    //region ---------- Ejercicio 2: alta en cascada ----------
 
     @Override
     public void altaCancion(Cancion cancion) {
@@ -47,14 +48,17 @@ public class RepositorioJDBC implements RepositorioSonoTeca {
                 conexion.commit();
             } catch (SQLException error) {
                 conexion.rollback();
-                System.out.println("Error en el alta de canción: " + error.getMessage());
+                throw new RuntimeException("Error en el alta de canción: " + error.getMessage());
             }
         } catch (SQLException error) {
             throw new RuntimeException("Error al dar de alta la canción: " + error);
         }
     }
 
-    // ---------- Ejercicio 3: listar con datos relacionados ----------
+    //endregion
+
+
+    //region ---------- Ejercicio 3: listar con datos relacionados ----------
 
     @Override
     public List<Cancion> listarCanciones() {
@@ -136,7 +140,10 @@ public class RepositorioJDBC implements RepositorioSonoTeca {
         return cancionesCompletas;
     }
 
-    // ---------- Ejercicio 4: búsqueda parametrizada ----------
+    //endregion
+
+
+    //region ---------- Ejercicio 4: búsqueda parametrizada ----------
 
     @Override
     public List<Cancion> buscarCanciones(String texto) {
@@ -181,16 +188,40 @@ public class RepositorioJDBC implements RepositorioSonoTeca {
         return canciones;
     }
 
-    // ---------- Ejercicio 5: actualizar / eliminar ----------
+    //endregion
+
+
+    //region ---------- Ejercicio 5: actualizar / eliminar ----------
 
     @Override
     public void actualizarCancion(Cancion cancion) {
-        throw new UnsupportedOperationException("TODO: implementar (unidad 3, ejercicio 5)");
+        String sql = """
+            UPDATE canciones
+            SET titulo = ?, numero_pista = ?, duracion_segundos = ?
+            WHERE id = ?
+            """;
+        try (Connection conexion = ConexionBD.obtenerConexion();
+        PreparedStatement ps = conexion.prepareStatement(sql)) {
+            ps.setString(1, cancion.getTitulo());
+            ps.setInt(2, cancion.getNumeroPista());
+            ps.setInt(3, cancion.getDuracionSegundos());
+            ps.setInt(4, cancion.getId());
+            ps.executeUpdate();
+        } catch (SQLException error) {
+            throw new RuntimeException("Error al actualizar la canción con id " + cancion.getId(), error);
+        }
     }
 
     @Override
     public void eliminarCancion(int idCancion) {
-        throw new UnsupportedOperationException("TODO: implementar (unidad 3, ejercicio 5)");
+        String sql = "DELETE FROM canciones WHERE id = ?";
+        try (Connection conexion = ConexionBD.obtenerConexion();
+             PreparedStatement ps = conexion.prepareStatement(sql)) {
+            ps.setInt(1, idCancion);
+            ps.executeUpdate();
+        } catch (SQLException error) {
+            throw new RuntimeException("Error al eliminar la canción con id " + idCancion, error);
+        }
     }
 
     /**
@@ -199,10 +230,23 @@ public class RepositorioJDBC implements RepositorioSonoTeca {
      * un mensaje claro en lugar de dejar que se propague la excepción SQL en crudo.
      */
     public void eliminarAlbum(int idAlbum) {
-        throw new UnsupportedOperationException("TODO: implementar (unidad 3, ejercicio 5)");
+        String sql = "DELETE FROM albumes WHERE id = ?";
+        try (Connection conexion = ConexionBD.obtenerConexion();
+             PreparedStatement ps = conexion.prepareStatement(sql)) {
+            ps.setInt(1, idAlbum);
+            ps.executeUpdate();
+        } catch (SQLException error) {
+            if ("23503".equals(error.getSQLState())) {
+                throw new RuntimeException("No se puede eliminar el álbum porque tiene canciones asociadas.", error);
+            }
+            throw new RuntimeException("Error al eliminar el álbum con id " + idAlbum, error);
+        }
     }
 
-    // ---------- Ejercicio 6: importación masiva con transacción ----------
+    //endregion
+
+
+    //region ---------- Ejercicio 6: importación masiva con transacción ----------
 
     /**
      * Importa una biblioteca completa desde un fichero JSON (unidad 1/2) dentro
@@ -210,25 +254,135 @@ public class RepositorioJDBC implements RepositorioSonoTeca {
      * falla, deshaz toda la importación con rollback().
      */
     public void importarDesdeJson(String rutaFichero) {
-        throw new UnsupportedOperationException("TODO: implementar (unidad 3, ejercicio 6)");
+        Biblioteca biblioteca;
+        try {
+            biblioteca = JsonUtils.importarBibliotecaJson(rutaFichero);
+        } catch (IOException error) {
+            throw new RuntimeException("Error al leer el fichero JSON: " + rutaFichero, error);
+        }
+
+        try (Connection conexion = ConexionBD.obtenerConexion()) {
+            conexion.setAutoCommit(false);
+            try {
+                insertarGenerosBatch(conexion, biblioteca.getGeneros());
+                insertarArtistasBatch(conexion, biblioteca.getArtistas());
+                insertarAlbumesBatch(conexion, biblioteca.getAlbumes());
+                insertarCancionesBatch(conexion, biblioteca.getCanciones());
+
+                actualizarSecuencias(conexion);
+
+                conexion.commit();
+            } catch (SQLException | RuntimeException error) {
+                try {
+                    conexion.rollback();
+                } catch (SQLException rollbackError) {
+                    error.addSuppressed(rollbackError);
+                }
+                throw new RuntimeException("Error durante la importación desde JSON; se ha hecho rollback", error);
+            } finally {
+                try {
+                    conexion.setAutoCommit(true);
+                } catch (SQLException autoCommitError) {
+                    // Evita ocultar la excepción principal si ya había un error
+                }
+            }
+        } catch (SQLException error) {
+            throw new RuntimeException("Error de conexión al importar desde JSON", error);
+        }
     }
 
-    // ---------- Resto de la interfaz ----------
+    private void insertarGenerosBatch(Connection conexion, List<Genero> generos) throws SQLException {
+        if (generos == null || generos.isEmpty()) return;
+
+        String sql = "INSERT INTO generos (id, nombre) VALUES (?, ?)";
+        try (PreparedStatement ps = conexion.prepareStatement(sql)) {
+            for (Genero g : generos) {
+                ps.setInt(1, g.getId());
+                ps.setString(2, g.getNombre());
+                ps.addBatch();
+            }
+            ps.executeBatch();
+        }
+    }
+
+    private void insertarArtistasBatch(Connection conexion, List<Artista> artistas) throws SQLException {
+        if (artistas == null || artistas.isEmpty()) return;
+
+        String sql = "INSERT INTO artistas (id, nombre, nacionalidad) VALUES (?, ?, ?)";
+        try (PreparedStatement ps = conexion.prepareStatement(sql)) {
+            for (Artista a : artistas) {
+                ps.setInt(1, a.getId());
+                ps.setString(2, a.getNombre());
+                ps.setString(3, a.getNacionalidad());
+                ps.addBatch();
+            }
+            ps.executeBatch();
+        }
+    }
+
+    private void insertarAlbumesBatch(Connection conexion, List<Album> albumes) throws SQLException {
+        if (albumes == null || albumes.isEmpty()) return;
+
+        String sql = "INSERT INTO albumes (id, titulo, anio, artista_id, genero_id) VALUES (?, ?, ?, ?, ?)";
+        try (PreparedStatement ps = conexion.prepareStatement(sql)) {
+            for (Album al : albumes) {
+                ps.setInt(1, al.getId());
+                ps.setString(2, al.getTitulo());
+                ps.setObject(3, al.getAnio() == 0 ? null : al.getAnio());
+                ps.setInt(4, al.getArtista().getId());
+                ps.setInt(5, al.getGenero().getId());
+                ps.addBatch();
+            }
+            ps.executeBatch();
+        }
+    }
+
+    private void insertarCancionesBatch(Connection conexion, List<Cancion> canciones) throws SQLException {
+        if (canciones == null || canciones.isEmpty()) return;
+
+        String sql = "INSERT INTO canciones (id, titulo, duracion_segundos, numero_pista, album_id) VALUES (?, ?, ?, ?, ?)";
+        try (PreparedStatement ps = conexion.prepareStatement(sql)) {
+            for (Cancion c : canciones) {
+                ps.setInt(1, c.getId());
+                ps.setString(2, c.getTitulo());
+                ps.setInt(3, c.getDuracionSegundos());
+                ps.setObject(4, c.getNumeroPista() == 0 ? null : c.getNumeroPista());
+                ps.setInt(5, c.getAlbum().getId());
+                ps.addBatch();
+            }
+            ps.executeBatch();
+        }
+    }
+
+    private void actualizarSecuencias(Connection conexion) throws SQLException {
+        String[] tablas = {"generos", "artistas", "albumes", "canciones"};
+        for (String tabla : tablas) {
+            String sql = "SELECT setval(pg_get_serial_sequence(?, 'id'), COALESCE((SELECT MAX(id) FROM " + tabla + "), 0) + 1, false)";
+            try (PreparedStatement ps = conexion.prepareStatement(sql)) {
+                ps.setString(1, tabla);
+                try (ResultSet rs = ps.executeQuery()) {
+                    rs.next();
+                }
+            }
+        }
+    }
+
+    //endregion
+
+
+    //region ---------- Resto de la interfaz ----------
 
     @Override
     public List<Genero> listarGeneros() {
-        String sql = "SELECT * FROM generos";
+        String sql = "SELECT * FROM generos ORDER BY nombre";
         List<Genero> generos = new ArrayList<>();
 
         try (Connection conexion = ConexionBD.obtenerConexion();
              PreparedStatement ps = conexion.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
-                int idGenero = rs.getInt("id_genero");
-                String nombreGenero = rs.getString("nombre");
-
-                Genero genero = new Genero(nombreGenero);
-                genero.setId(idGenero);
+                Genero genero = new Genero(rs.getString("nombre"));
+                genero.setId(rs.getInt("id"));
                 generos.add(genero);
             }
         } catch (SQLException error) {
@@ -239,17 +393,18 @@ public class RepositorioJDBC implements RepositorioSonoTeca {
 
     @Override
     public List<Artista> listarArtistas() {
-        String sql = "SELECT * FROM artistas";
+        String sql = "SELECT * FROM artistas ORDER BY nombre";
         List<Artista> artistas = new ArrayList<>();
 
         try (Connection conexion = ConexionBD.obtenerConexion();
              PreparedStatement ps = conexion.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
-                int idArtista = rs.getInt("id");
-                String nombreArtista = rs.getString("nombre");
-                String nacionalidadArtista = rs.getString("nacionalidad");
-                artistas.add(new Artista(idArtista, nombreArtista, nacionalidadArtista));
+                artistas.add(new Artista(
+                        rs.getInt("id"),
+                        rs.getString("nombre"),
+                        rs.getString("nacionalidad")
+                ));
             }
         } catch (SQLException error) {
             throw new RuntimeException("Error al listar artistas", error);
@@ -259,30 +414,146 @@ public class RepositorioJDBC implements RepositorioSonoTeca {
 
     @Override
     public List<Album> listarAlbumes() {
-        throw new UnsupportedOperationException("TODO: implementar (unidad 3)");
+        String sql = """
+            SELECT
+                al.id AS album_id,
+                al.titulo AS album_titulo,
+                al.anio AS album_anio,
+                ar.id AS artista_id,
+                ar.nombre AS artista_nombre,
+                ar.nacionalidad AS artista_nacionalidad,
+                g.id AS genero_id,
+                g.nombre AS genero_nombre
+            FROM albumes al
+            JOIN artistas ar ON al.artista_id = ar.id
+            JOIN generos g ON al.genero_id = g.id
+            ORDER BY al.titulo
+            """;
+        List<Album> albumes = new ArrayList<>();
+
+        try (Connection conexion = ConexionBD.obtenerConexion();
+        PreparedStatement ps = conexion.prepareStatement(sql);
+        ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                Genero genero = new Genero();
+                genero.setId(rs.getInt("genero_id"));
+                genero.setNombre(rs.getString("genero_nombre"));
+
+                Artista artista = new Artista();
+                artista.setId(rs.getInt("artista_id"));
+                artista.setNombre(rs.getString("artista_nombre"));
+                artista.setNacionalidad(rs.getString("artista_nacionalidad"));
+
+                Album album = new Album();
+                album.setId(rs.getInt("album_id"));
+                album.setTitulo(rs.getString("album_titulo"));
+                int anio = rs.getInt("album_anio");
+                if (!rs.wasNull()) {
+                    album.setAnio(anio);
+                }
+                album.setArtista(artista);
+                album.setGenero(genero);
+
+                albumes.add(album);
+            }
+        } catch (SQLException error) {
+            throw new RuntimeException("Error al listar los álbumes", error);
+        }
+        return albumes;
     }
 
     @Override
     public List<ListaReproduccion> listarListas() {
-        throw new UnsupportedOperationException("TODO: implementar (unidad 3)");
+        String  sql = "SELECT * FROM listas_reproduccion ORDER BY nombre";
+        List<ListaReproduccion> listas = new ArrayList<>();
+
+        try (Connection conexion = ConexionBD.obtenerConexion();
+             PreparedStatement ps = conexion.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                ListaReproduccion lista = new ListaReproduccion();
+                lista.setId(rs.getInt("id"));
+                lista.setNombre(rs.getString("nombre"));
+                listas.add(lista);
+            }
+        } catch (SQLException error) {
+            throw new RuntimeException("Error al listar las listas de reproducción", error);
+        }
+        return listas;
     }
 
     @Override
     public void altaLista(ListaReproduccion lista) {
-        throw new UnsupportedOperationException("TODO: implementar (unidad 3)");
+        String sql = "INSERT INTO listas_reproduccion (nombre) VALUES (?) RETURNING id";
+        try (Connection conexion = ConexionBD.obtenerConexion();
+             PreparedStatement ps = conexion.prepareStatement(sql)) {
+            ps.setString(1, lista.getNombre());
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    lista.setId(rs.getInt("id"));
+                }
+            }
+        } catch (SQLException error) {
+            throw new RuntimeException("Error al crear la lista de reproducción", error);
+        }
     }
 
     @Override
     public void anyadirCancionALista(int idLista, int idCancion, int posicion) {
-        throw new UnsupportedOperationException("TODO: implementar (unidad 3)");
+        String sql = "INSERT INTO lista_cancion (lista_id, cancion_id, posicion) VALUES (?, ?, ?)";
+        try (Connection conexion = ConexionBD.obtenerConexion();
+             PreparedStatement ps = conexion.prepareStatement(sql)) {
+            ps.setInt(1, idLista);
+            ps.setInt(2, idCancion);
+            ps.setInt(3, posicion);
+            ps.executeUpdate();
+        } catch (SQLException error) {
+            throw new RuntimeException("Error al añadir la canción " + idCancion + " a la lista " + idLista, error);
+        }
     }
 
     @Override
     public List<Cancion> cancionesDeLista(int idLista) {
-        throw new UnsupportedOperationException("TODO: implementar (unidad 3)");
+        String sql = """
+            SELECT
+                c.id AS cancion_id,
+                c.titulo AS cancion_titulo,
+                c.duracion_segundos,
+                c.numero_pista,
+                al.id AS album_id,
+                al.titulo AS album_titulo,
+                al.anio AS album_anio,
+                ar.id AS artista_id,
+                ar.nombre AS artista_nombre,
+                ar.nacionalidad AS artista_nacionalidad,
+                g.id AS genero_id,
+                g.nombre AS genero_nombre
+            FROM lista_cancion lc
+            JOIN canciones c ON lc.cancion_id = c.id
+            JOIN albumes al ON c.album_id = al.id
+            JOIN artistas ar ON al.artista_id = ar.id
+            JOIN generos g ON al.genero_id = g.id
+            WHERE lc.lista_id = ?
+            ORDER BY lc.posicion
+            """;
+        List<Cancion> canciones = new ArrayList<>();
+
+        try (Connection conexion = ConexionBD.obtenerConexion();
+             PreparedStatement ps = conexion.prepareStatement(sql)) {
+            ps.setInt(1, idLista);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) canciones.add(mapearCancion(rs));
+            }
+        } catch (SQLException error) {
+            throw new RuntimeException("Error al obtener las canciones de la lista " + idLista, error);
+        }
+        return canciones;
     }
 
-    // ---------- Métodos varios ----------
+    //endregion
+
+
+    //region ---------- Métodos varios ----------
 
     private Cancion mapearCancion(ResultSet rs) throws SQLException {
         Genero genero = new Genero();
@@ -375,4 +646,7 @@ public class RepositorioJDBC implements RepositorioSonoTeca {
             }
         }
     }
+
+    //endregion
+
 }

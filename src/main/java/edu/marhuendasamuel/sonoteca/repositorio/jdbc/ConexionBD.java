@@ -28,9 +28,6 @@ public class ConexionBD {
         String url = propiedades.getProperty("bd.url");
         String usuario = propiedades.getProperty("bd.usuario");
         String password = propiedades.getProperty("bd.password");
-
-        // DONE: comprueba que url/usuario/password se han leído correctamente y
-        // devuelve la conexión con DriverManager.getConnection(url, usuario, password).
         return DriverManager.getConnection(url, usuario, password);
     }
 }

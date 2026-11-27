@@ -44,20 +44,127 @@ public class RepositorioFicheros implements RepositorioSonoTeca {
         try {
             this.biblioteca = cargarBiblioteca(rutaFicheroBiblioteca);
         } catch (UnsupportedOperationException e) {
-            // Todavía no has hecho el ejercicio 3 (cargarBiblioteca): empezamos con una
-            // biblioteca vacía en memoria para poder probar ya los ejercicios 1 y 2.
-            System.out.println("(cargarBiblioteca aún no implementado; empezando con una biblioteca vacía en memoria)");
+            System.out.println("Error en la importación, empezando con una biblioteca vacía en memoria");
             this.biblioteca = new Biblioteca();
         }
     }
 
-    // ---------- Ejercicio 1: escanear un directorio en busca de MP3 ----------
+    //region ---------- Ejercicio 0: Implementación de RepositorioSonoTeca ----------
+    // A partir de aquí, apóyate en el objeto "biblioteca" cargado en memoria,
+    // y recuerda volver a llamar a guardarBiblioteca(...) cada vez que la modifiques.
+    // Nota: He segmentado el código en bloques region comprimibles para mayor comodidad
+
+    @Override
+    public List<Genero> listarGeneros() {
+        return biblioteca.getGeneros();
+    }
+
+    @Override
+    public List<Artista> listarArtistas() {
+        return biblioteca.getArtistas();
+    }
+
+    @Override
+    public List<Album> listarAlbumes() {
+        return biblioteca.getAlbumes();
+    }
+
+    @Override
+    public List<Cancion> listarCanciones() {
+        return biblioteca.getCanciones();
+    }
+
+    @Override
+    public List<Cancion> buscarCanciones(String texto) {
+        return listarCanciones().stream()
+                .filter(c -> c.getTitulo().toLowerCase().contains(texto.toLowerCase()))
+                .toList();
+    }
+
+    @Override
+    public void altaCancion(Cancion cancion) {
+        List<Cancion> listaCanciones = listarCanciones();
+        String titulo = cancion.getTitulo();
+        boolean noExisteCancion = obtenerCoincidencia(listaCanciones, titulo, Cancion::getTitulo) == null;
+
+        if (noExisteCancion) {
+            int idNuevo = siguienteId(listaCanciones, Cancion::getId);
+            comprobarElementosCancion(cancion);
+            cancion.setId(idNuevo);
+            listaCanciones.add(cancion);
+            biblioteca.setCanciones(listaCanciones);
+            guardarBiblioteca(biblioteca, rutaFicheroBiblioteca);
+        }
+    }
+
+    @Override
+    public void actualizarCancion(Cancion cancion) {
+        // sustituye en la lista la canción con el mismo id
+        int idCancion = cancion.getId();
+        List<Cancion> listaCanciones = listarCanciones();
+        Cancion cancionDeLista = obtenerPorId(listarCanciones(), idCancion, Cancion::getId);
+
+        if (cancionDeLista != null) {
+            int posicion = listaCanciones.indexOf(cancionDeLista);
+            listaCanciones.set(posicion, cancion);
+            biblioteca.setCanciones(listaCanciones);
+            guardarBiblioteca(biblioteca, rutaFicheroBiblioteca);
+        }
+    }
+
+    @Override
+    public void eliminarCancion(int idCancion) {
+        Cancion cancion = obtenerPorId(listarCanciones(), idCancion, Cancion::getId);
+        if (cancion != null) {
+            List<Cancion> listaCanciones = listarCanciones();
+            int posicion = listaCanciones.indexOf(cancion);
+
+            listaCanciones.remove(posicion);
+            biblioteca.setCanciones(listaCanciones);
+            guardarBiblioteca(biblioteca, rutaFicheroBiblioteca);
+        }
+    }
+
+    @Override
+    public List<ListaReproduccion> listarListas() {
+        return listas;
+    }
+
+    @Override
+    public void altaLista(ListaReproduccion lista) {
+        int nuevoId = siguienteId(listas, ListaReproduccion::getId);
+        lista.setId(nuevoId);
+        listas.add(lista);
+    }
+
+    @Override
+    public void anyadirCancionALista(int idLista, int idCancion, int posicion) {
+        ListaReproduccion lista = obtenerPorId(listas, idLista, ListaReproduccion::getId);
+        Cancion cancion = obtenerPorId(listarCanciones(), idCancion, Cancion::getId);
+
+        if (cancion != null && lista != null) {
+            List<Cancion> cancionesDeLista = lista.getCanciones();
+            if (posicion > cancionesDeLista.size()) posicion = cancionesDeLista.size();
+            cancionesDeLista.add(posicion, cancion);
+        }
+    }
+
+    // Devuelve las canciones ordenadas por posición, no en el orden en que se añadieron.
+    @Override
+    public List<Cancion> cancionesDeLista(int idLista) {
+        ListaReproduccion lista = obtenerPorId(listas, idLista, ListaReproduccion::getId);
+        return lista != null ? lista.getCanciones() : List.of();
+    }
+
+    //endregion
+
+
+    //region ---------- Ejercicio 1: escanear un directorio en busca de MP3 ----------
 
     /**
      * @return la lista de ficheros .mp3 encontrados recursivamente a partir de rutaBase.
      *         Si rutaBase no existe o no es un directorio, devuelve una lista vacía.
      */
-    // DONE: implementar (unidad 2, ejercicio 1).
     public List<File> escanearDirectorio(String rutaBase) {
         if (rutaBase == null || rutaBase.isBlank()) {
             return List.of();
@@ -79,14 +186,16 @@ public class RepositorioFicheros implements RepositorioSonoTeca {
         }
     }
 
-    // ---------- Ejercicio 2: leer la cabecera ID3v1 ----------
+    //endregion
+
+
+    //region ---------- Ejercicio 2: leer la cabecera ID3v1 ----------
 
     /**
      * Lee los últimos 128 bytes de ficheroMp3 (cabecera ID3v1) y construye la Cancion
      * correspondiente (creando también, si hace falta, Artista/Album/Género).
      * Si el fichero no tiene cabecera ID3v1 válida, devuelve null.
      */
-    // DONE: implementar (unidad 2, ejercicio 2).
     public Cancion leerCabeceraID3(File ficheroMp3) {
         try {
             Path ruta = ficheroMp3.toPath();
@@ -136,8 +245,11 @@ public class RepositorioFicheros implements RepositorioSonoTeca {
         return texto.trim();
     }
 
-    // ---------- Ejercicio 3: serializar/deserializar la biblioteca ----------
-    // DONE: implementar con ObjectOutputStream (unidad 2, ejercicio 3).
+    //endregion
+
+
+    //region ---------- Ejercicio 3: serializar/deserializar la biblioteca ----------
+
     public void guardarBiblioteca(Biblioteca biblioteca, String rutaFichero) {
         try {
             Path rutaAbsoluta = Path.of(rutaFichero).toAbsolutePath();
@@ -157,7 +269,6 @@ public class RepositorioFicheros implements RepositorioSonoTeca {
         }
     }
 
-    // DONE: implementar con ObjectInputStream (unidad 2, ejercicio 3).
     public Biblioteca cargarBiblioteca(String rutaFichero) {
         try {
             Path rutaAbsoluta = Path.of(rutaFichero).toAbsolutePath();
@@ -178,65 +289,10 @@ public class RepositorioFicheros implements RepositorioSonoTeca {
         }
     }
 
-    // ---------- Implementación de RepositorioSonoTeca (Ejercicio 0) ----------
-    // A partir de aquí, apóyate en el objeto "biblioteca" cargado en memoria,
-    // y recuerda volver a llamar a guardarBiblioteca(...) cada vez que la modifiques.
-    // Nota: He segmentado el código en bloques region comprimibles para mayor comodidad
-
-    //region LISTADO DE OBJETOS SIMPLES
-
-    // DONE: implementar (unidad 2, ejercicio 0).
-    @Override
-    public List<Genero> listarGeneros() {
-        return biblioteca.getGeneros();
-    }
-
-    // DONE: implementar (unidad 2, ejercicio 0).
-    @Override
-    public List<Artista> listarArtistas() {
-        return biblioteca.getArtistas();
-    }
-
-    // DONE: implementar (unidad 2, ejercicio 0).
-    @Override
-    public List<Album> listarAlbumes() {
-        return biblioteca.getAlbumes();
-    }
-
-    // DONE: implementar (unidad 2, ejercicio 0).
-    @Override
-    public List<Cancion> listarCanciones() {
-        return biblioteca.getCanciones();
-    }
-
     //endregion
 
-    //region GESTIÓN DE CANCIONES
 
-    // DONE: implementar (unidad 2, ejercicio 0).
-    @Override
-    public List<Cancion> buscarCanciones(String texto) {
-        return listarCanciones().stream()
-                .filter(c -> c.getTitulo().toLowerCase().contains(texto.toLowerCase()))
-                .toList();
-    }
-
-    // DONE: implementar (unidad 2, ejercicio 0).
-    @Override
-    public void altaCancion(Cancion cancion) {
-        List<Cancion> listaCanciones = listarCanciones();
-        String titulo = cancion.getTitulo();
-        boolean noExisteCancion = obtenerCoincidencia(listaCanciones, titulo, Cancion::getTitulo) == null;
-
-        if (noExisteCancion) {
-            int idNuevo = siguienteId(listaCanciones, Cancion::getId);
-            comprobarElementosCancion(cancion);
-            cancion.setId(idNuevo);
-            listaCanciones.add(cancion);
-            biblioteca.setCanciones(listaCanciones);
-            guardarBiblioteca(biblioteca, rutaFicheroBiblioteca);
-        }
-    }
+    //region ---------- Resto de la interfaz ----------
 
     private void comprobarElementosCancion(Cancion cancion) {
         Album albumOriginal = cancion.getAlbum();
@@ -259,80 +315,6 @@ public class RepositorioFicheros implements RepositorioSonoTeca {
         cancion.setAlbum(albumSeguro);
     }
 
-    // DONE: implementar (unidad 2, ejercicio 0).
-    @Override
-    public void actualizarCancion(Cancion cancion) {
-        // sustituye en la lista la canción con el mismo id
-        int idCancion = cancion.getId();
-        List<Cancion> listaCanciones = listarCanciones();
-        Cancion cancionDeLista = obtenerPorId(listarCanciones(), idCancion, Cancion::getId);
-
-        if (cancionDeLista != null) {
-            int posicion = listaCanciones.indexOf(cancionDeLista);
-            listaCanciones.set(posicion, cancion);
-            biblioteca.setCanciones(listaCanciones);
-            guardarBiblioteca(biblioteca, rutaFicheroBiblioteca);
-        }
-    }
-
-    // DONE: implementar (unidad 2, ejercicio 0).
-    @Override
-    public void eliminarCancion(int idCancion) {
-        Cancion cancion = obtenerPorId(listarCanciones(), idCancion, Cancion::getId);
-        if (cancion != null) {
-            List<Cancion> listaCanciones = listarCanciones();
-            int posicion = listaCanciones.indexOf(cancion);
-
-            listaCanciones.remove(posicion);
-            biblioteca.setCanciones(listaCanciones);
-            guardarBiblioteca(biblioteca, rutaFicheroBiblioteca);
-        }
-    }
-
-    //endregion
-
-    //region GESTIÓN CON LISTAS
-
-    // DONE: implementar (unidad 2, ejercicio 0).
-    @Override
-    public List<ListaReproduccion> listarListas() {
-        return listas;
-    }
-
-    // DONE: implementar (unidad 2, ejercicio 0).
-    @Override
-    public void altaLista(ListaReproduccion lista) {
-        int nuevoId = siguienteId(listas, ListaReproduccion::getId);
-        lista.setId(nuevoId);
-        listas.add(lista);
-    }
-
-    // DONE: implementar (unidad 2, ejercicio 0).
-    @Override
-    public void anyadirCancionALista(int idLista, int idCancion, int posicion) {
-        ListaReproduccion lista = obtenerPorId(listas, idLista, ListaReproduccion::getId);
-        Cancion cancion = obtenerPorId(listarCanciones(), idCancion, Cancion::getId);
-
-        if (cancion != null && lista != null) {
-            List<Cancion> cancionesDeLista = lista.getCanciones();
-            if (posicion > cancionesDeLista.size()) posicion = cancionesDeLista.size();
-            cancionesDeLista.add(posicion, cancion);
-        }
-    }
-
-    // DONE: implementar (unidad 2, ejercicio 0).
-    // Devuelve las canciones ordenadas por posición, no en el orden en que se añadieron.
-    @Override
-    public List<Cancion> cancionesDeLista(int idLista) {
-        ListaReproduccion lista = obtenerPorId(listas, idLista, ListaReproduccion::getId);
-        return lista != null ? lista.getCanciones() : List.of();
-    }
-
-    //endregion
-
-
-    //region OPERACIONES POR ID - métodos hechos con clase genérica para que funcionen con cualquier tipo de lista
-
     private <T> int siguienteId(List<T> lista, ToIntFunction<T> idExtractor) {
         int maxId = lista.stream()
                 .mapToInt(idExtractor).max()
@@ -346,10 +328,6 @@ public class RepositorioFicheros implements RepositorioSonoTeca {
                 .findFirst()
                 .orElse(null);
     }
-
-    //endregion
-
-    //region OBTENER O CREAR ELEMENTOS
 
     private Artista obtenerOCrearArtista(String nombre, String nacionalidad) {
         List<Artista> artistas = listarArtistas();
@@ -399,5 +377,6 @@ public class RepositorioFicheros implements RepositorioSonoTeca {
     }
 
     //endregion
+
 }
 
