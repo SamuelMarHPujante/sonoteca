@@ -217,12 +217,44 @@ public class RepositorioJDBC implements RepositorioSonoTeca {
 
     @Override
     public List<Genero> listarGeneros() {
-        throw new UnsupportedOperationException("TODO: implementar (unidad 3)");
+        String sql = "SELECT * FROM generos";
+        List<Genero> generos = new ArrayList<>();
+
+        try (Connection conexion = ConexionBD.obtenerConexion();
+             PreparedStatement ps = conexion.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                int idGenero = rs.getInt("id_genero");
+                String nombreGenero = rs.getString("nombre");
+
+                Genero genero = new Genero(nombreGenero);
+                genero.setId(idGenero);
+                generos.add(genero);
+            }
+        } catch (SQLException error) {
+            throw new RuntimeException("Error al listar generos", error);
+        }
+        return generos;
     }
 
     @Override
     public List<Artista> listarArtistas() {
-        throw new UnsupportedOperationException("TODO: implementar (unidad 3)");
+        String sql = "SELECT * FROM artistas";
+        List<Artista> artistas = new ArrayList<>();
+
+        try (Connection conexion = ConexionBD.obtenerConexion();
+             PreparedStatement ps = conexion.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                int idArtista = rs.getInt("id");
+                String nombreArtista = rs.getString("nombre");
+                String nacionalidadArtista = rs.getString("nacionalidad");
+                artistas.add(new Artista(idArtista, nombreArtista, nacionalidadArtista));
+            }
+        } catch (SQLException error) {
+            throw new RuntimeException("Error al listar artistas", error);
+        }
+        return artistas;
     }
 
     @Override
